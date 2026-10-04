@@ -28,7 +28,7 @@
 ## 🛠️ Tech Stack
 
 * **Frontend**: React, Vite, Plain CSS3 (Custom variables, Dark/Light theme engine)
-* **Backend & Database**: Supabase (PostgreSQL, Realtime Subscriptions, Row Level Security)
+* **Backend & Database**: LocalStorage from device
 * **Icons**: [Lucide React](https://lucide.dev/)
 * **Utilities**: Browser Camera MediaDevices API & BarcodeDetector API
 
