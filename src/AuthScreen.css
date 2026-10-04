@@ -11,7 +11,7 @@
 
 .auth-card {
   position: relative;
-  width: min(100%, 330px);
+  width: min(100%, 340px);
   box-sizing: border-box;
   padding: 32px 22px 24px;
   border: 1px solid var(--panel-border);
@@ -65,7 +65,7 @@
 }
 
 .auth-subtitle { 
-  margin: 5px 0 26px; 
+  margin: 5px 0 22px; 
   color: var(--text-muted); 
   font-size: .88rem; 
 }
@@ -74,7 +74,7 @@
   display: grid; 
   grid-template-columns: 1fr 1fr; 
   gap: 8px; 
-  margin-bottom: 22px; 
+  margin-bottom: 18px; 
 }
 
 .auth-tabs button { 
@@ -91,6 +91,22 @@
   background: var(--caramel-gold); 
   color: white; 
   border-color: var(--caramel-gold); 
+}
+
+.auth-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(230, 83, 83, 0.12);
+  border: 1px solid rgba(230, 83, 83, 0.3);
+  color: var(--rose-red);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: left;
+  line-height: 1.35;
+  margin-bottom: 16px;
 }
 
 .auth-card form { 
@@ -154,6 +170,47 @@
   color: var(--text-primary); 
   background: transparent; 
   font: 500 .81rem var(--font-main); 
+}
+
+.auth-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.auth-link-student-btn {
+  min-height: 45px;
+  padding: 0 12px;
+  border-radius: 15px;
+  border: 1px solid var(--caramel-gold);
+  background: var(--caramel-glow);
+  color: var(--caramel-gold);
+  font-family: var(--font-main);
+  font-size: 0.74rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.auth-link-student-btn:hover {
+  background: var(--caramel-gold);
+  color: #ffffff;
+}
+
+.auth-linked-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--green-pos);
+  font-weight: 700;
+  margin-top: 5px;
+  margin-bottom: 12px;
 }
 
 .password-toggle { 

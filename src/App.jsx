@@ -3,12 +3,11 @@ import {
   Coffee, Shield, QrCode, Lock, User, AlertTriangle, 
   CheckCircle2, ShoppingBag, LogOut, Store, CreditCard, 
   Receipt, Plus, Trash2, TrendingUp,
-  Sun, Moon, Camera, X, Send, Users, Sliders, Wallet, History
+  Sun, Moon, Camera, X, Send, Users, Sliders, Wallet, History, Check
 } from 'lucide-react';
 import './App.css';
 import AuthScreen from './AuthScreen';
 
-// Cafe menu grouped by category and beverage subcategory.
 const BEVERAGE_SUBCATEGORIES = [
   'Tea', 'Iced Tea', 'Virgin Mojito', 'Smoothies', 'Milk shake', 'Lemonade',
   'Coffee', 'Iced Coffee', 'Blended coffee', 'Add ons', 'Special', 'Alternatives'
@@ -84,7 +83,6 @@ const CAFE_MENU = [
 
 const MAX_WALLET_LIMIT = 10000;
 
-// Unique Student ID generator using Timestamp + Random Hex Code
 function generateStudentId() {
   const timestamp = Date.now().toString(36).toUpperCase().slice(-4);
   const randomNum = Math.floor(1000 + Math.random() * 9000);
@@ -104,22 +102,61 @@ function DynamicQRCode({ value, size = 150 }) {
 
 function QRScannerModal({ isOpen, onClose, onScanSuccess, title = "Scan QR Code" }) {
   const [videoActive, setVideoActive] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const videoRef = useRef(null);
 
   useEffect(() => {
     let stream = null;
+    let animFrameId = null;
+
     if (isOpen) {
-      navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
-        .then((s) => {
-          stream = s;
-          if (videoRef.current) {
-            videoRef.current.srcObject = s;
-            setVideoActive(true);
+      setErrorMessage('');
+      setVideoActive(false);
+
+      const initCamera = async () => {
+        try {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          } catch (e) {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
           }
-        })
-        .catch(() => setVideoActive(false));
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            await videoRef.current.play();
+            setVideoActive(true);
+
+            if ('BarcodeDetector' in window) {
+              const barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
+              const scanLoop = async () => {
+                if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+                  try {
+                    const codes = await barcodeDetector.detect(videoRef.current);
+                    if (codes.length > 0) {
+                      onScanSuccess(codes[0].rawValue);
+                      return;
+                    }
+                  } catch (e) {}
+                }
+                animFrameId = requestAnimationFrame(scanLoop);
+              };
+              animFrameId = requestAnimationFrame(scanLoop);
+            }
+          }
+        } catch (err) {
+          console.error('Camera access error:', err);
+          setErrorMessage('Camera access denied or unavailable on this device.');
+          setVideoActive(false);
+        }
+      };
+
+      initCamera();
     }
-    return () => stream?.getTracks().forEach((t) => t.stop());
+
+    return () => {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -133,12 +170,18 @@ function QRScannerModal({ isOpen, onClose, onScanSuccess, title = "Scan QR Code"
           <button className="icon-close-btn" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="viewfinder-container">
-          {videoActive ? (
-            <video ref={videoRef} autoPlay playsInline className="viewfinder-video" />
-          ) : (
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            muted 
+            className="viewfinder-video"
+            style={{ display: videoActive ? 'block' : 'none' }}
+          />
+          {!videoActive && (
             <div className="viewfinder-placeholder">
               <QrCode size={48} className="pulse-icon" />
-              <span>Camera active • Align QR inside frame</span>
+              <span>{errorMessage || 'Activating camera...'}</span>
             </div>
           )}
           <div className="scanner-overlay"><div className="scan-reticle"></div><div className="laser-beam"></div></div>
@@ -155,7 +198,6 @@ function QRScannerModal({ isOpen, onClose, onScanSuccess, title = "Scan QR Code"
   );
 }
 
-// Reusable Transaction History Component
 function TransactionHistory({ transactions }) {
   return (
     <div className="panel transaction-history-panel">
@@ -174,7 +216,7 @@ function TransactionHistory({ transactions }) {
                 <span className="history-meta">{tx.date} • {tx.by}</span>
               </div>
               <span className={`history-amount ${tx.type === 'credit' ? 'green-text' : 'red-text'}`}>
-                {tx.type === 'credit' ? '+' : '-'} Rs {tx.amount.toFixed(2)}
+                {tx.type === 'credit' ? '+' : '-'} RS {Math.round(tx.amount)}
               </span>
             </div>
           ))}
@@ -188,7 +230,6 @@ export default function App() {
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || null);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
-  // Dynamic Student Account with unique ID generation
   const [student, setStudent] = useState(() => {
     const saved = localStorage.getItem('studentData');
     if (saved) {
@@ -196,35 +237,118 @@ export default function App() {
       return {
         ...parsed,
         id: parsed.id || generateStudentId(),
-        name: parsed.name || 'New Student',
-        walletBalance: Math.min(MAX_WALLET_LIMIT, Math.max(0, Number(parsed.walletBalance) || 0)),
-        dailyCap: Math.min(MAX_WALLET_LIMIT, Math.max(0, Number(parsed.dailyCap) || 0)),
+        name: parsed.name || 'Alex Sharma',
+        walletBalance: parsed.walletBalance !== undefined ? Math.round(Number(parsed.walletBalance)) : 500,
+        dailyCap: parsed.dailyCap ? Math.round(Number(parsed.dailyCap)) : 2000,
+        spentToday: parsed.spentToday ? Math.round(Number(parsed.spentToday)) : 0,
       };
     }
 
     return {
       id: generateStudentId(),
-      name: 'New Student',
-      walletBalance: 2500.0,
-      dailyCap: 2000.0,
-      spentToday: 0.0,
+      name: 'Alex Sharma',
+      walletBalance: 500,
+      dailyCap: 2000,
+      spentToday: 0,
     };
+  });
+
+  const [incomingOrders, setIncomingOrders] = useState(() => {
+    const saved = localStorage.getItem('incomingOrdersData');
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem('transactionsData');
     return saved ? JSON.parse(saved) : [
-      { id: 'TX-101', title: 'Iced Latte', amount: 255, type: 'debit', date: 'Today, 10:15 AM', by: 'Student POS' },
-      { id: 'TX-100', title: 'Parent Top-Up', amount: 1000, type: 'credit', date: 'Yesterday', by: 'Parent Portal' }
+      { id: 'TX-101', title: 'Iced Tea Purchase', amount: 200, type: 'debit', date: 'Today, 10:15 AM', by: 'Student Portal' },
+      { id: 'TX-100', title: 'Parent Initial Top-Up', amount: 500, type: 'credit', date: 'Yesterday', by: 'Parent Portal' }
     ];
   });
 
-  const [staffSales, setStaffSales] = useState({
-    totalRevenue: 4850.0,
-    ordersToday: 32,
+  const [staffSales, setStaffSales] = useState(() => {
+    const saved = localStorage.getItem('staffSalesData');
+    return saved ? JSON.parse(saved) : {
+      totalRevenue: 0,
+      ordersToday: 0,
+    };
   });
 
   const [notification, setNotification] = useState(null);
+  const bcRef = useRef(null);
+
+  // Cross-device & Multi-tab robust synchronization engine
+  useEffect(() => {
+    if ('BroadcastChannel' in window && !bcRef.current) {
+      bcRef.current = new BroadcastChannel('cafeopass_sync_channel');
+      bcRef.current.onmessage = (event) => {
+        const payload = event.data;
+        if (!payload) return;
+        if (payload.studentData) setStudent(payload.studentData);
+        if (payload.transactionsData) setTransactions(payload.transactionsData);
+        if (payload.incomingOrdersData) setIncomingOrders(payload.incomingOrdersData);
+        if (payload.staffSalesData) setStaffSales(payload.staffSalesData);
+      };
+    }
+
+    const syncFromLocalStorage = () => {
+      try {
+        const sData = localStorage.getItem('studentData');
+        if (sData) {
+          const parsed = JSON.parse(sData);
+          setStudent((prev) => (JSON.stringify(prev) !== sData ? parsed : prev));
+        }
+        const tData = localStorage.getItem('transactionsData');
+        if (tData) {
+          const parsed = JSON.parse(tData);
+          setTransactions((prev) => (JSON.stringify(prev) !== tData ? parsed : prev));
+        }
+        const oData = localStorage.getItem('incomingOrdersData');
+        if (oData) {
+          const parsed = JSON.parse(oData);
+          setIncomingOrders((prev) => (JSON.stringify(prev) !== oData ? parsed : prev));
+        }
+        const salesData = localStorage.getItem('staffSalesData');
+        if (salesData) {
+          const parsed = JSON.parse(salesData);
+          setStaffSales((prev) => (JSON.stringify(prev) !== salesData ? parsed : prev));
+        }
+      } catch (e) {
+        console.error('Local Storage Sync Error:', e);
+      }
+    };
+
+    const handleStorageEvent = (e) => {
+      if (e.key === 'studentData' && e.newValue) setStudent(JSON.parse(e.newValue));
+      if (e.key === 'transactionsData' && e.newValue) setTransactions(JSON.parse(e.newValue));
+      if (e.key === 'incomingOrdersData' && e.newValue) setIncomingOrders(JSON.parse(e.newValue));
+      if (e.key === 'staffSalesData' && e.newValue) setStaffSales(JSON.parse(e.newValue));
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('focus', syncFromLocalStorage);
+
+    const pollTimer = setInterval(syncFromLocalStorage, 800);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('focus', syncFromLocalStorage);
+      clearInterval(pollTimer);
+      if (bcRef.current) {
+        bcRef.current.close();
+        bcRef.current = null;
+      }
+    };
+  }, []);
+
+  const broadcastSync = (key, value) => {
+    localStorage.setItem(key, JSON.stringify(value));
+    if (bcRef.current) {
+      try {
+        bcRef.current.postMessage({ [key]: value });
+      } catch (e) {}
+    }
+  };
 
   useEffect(() => {
     if (userRole) {
@@ -235,12 +359,20 @@ export default function App() {
   }, [userRole]);
 
   useEffect(() => {
-    localStorage.setItem('studentData', JSON.stringify(student));
+    broadcastSync('studentData', student);
   }, [student]);
 
   useEffect(() => {
-    localStorage.setItem('transactionsData', JSON.stringify(transactions));
+    broadcastSync('transactionsData', transactions);
   }, [transactions]);
+
+  useEffect(() => {
+    broadcastSync('incomingOrdersData', incomingOrders);
+  }, [incomingOrders]);
+
+  useEffect(() => {
+    broadcastSync('staffSalesData', staffSales);
+  }, [staffSales]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -259,7 +391,7 @@ export default function App() {
     const newTx = {
       id: `TX-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       title,
-      amount,
+      amount: Math.round(amount),
       type,
       date: 'Just now',
       by
@@ -267,25 +399,27 @@ export default function App() {
     setTransactions((prev) => [newTx, ...prev]);
   };
 
-  const handleAuth = (role, { createAccount = false, email = '', fullName = '' } = {}) => {
-    // Derive name from input or email
+  const handleAuth = (role, { createAccount = false, email = '', fullName = '', studentId = '' } = {}) => {
     const enteredName = fullName.trim() || (email ? email.split('@')[0].replace(/[._-]+/g, ' ').trim() : '');
     
-    if (createAccount && role === 'student') {
-      const freshStudent = {
-        id: generateStudentId(), // Unique ID assigned on registration
-        name: enteredName || 'Student User',
-        walletBalance: 0,
-        dailyCap: 2000,
-        spentToday: 0,
-      };
-      setStudent(freshStudent);
-      setTransactions([]);
-    } else if (enteredName && role === 'student') {
-      setStudent((prev) => ({
-        ...prev,
-        name: enteredName,
-      }));
+    if (createAccount) {
+      if (role === 'student') {
+        const freshStudent = {
+          id: generateStudentId(),
+          name: enteredName || 'Student User',
+          walletBalance: 500,
+          dailyCap: 2000,
+          spentToday: 0,
+        };
+        setStudent(freshStudent);
+      } else if (role === 'parent' && studentId.trim()) {
+        setStudent((prev) => ({
+          ...prev,
+          id: studentId.trim().toUpperCase()
+        }));
+      }
+    } else if (enteredName && role === 'student' && !student.name) {
+      setStudent((prev) => ({ ...prev, name: enteredName }));
     }
 
     setUserRole(role);
@@ -297,7 +431,7 @@ export default function App() {
   };
 
   if (!userRole) {
-    return <AuthScreen onSignIn={handleAuth} theme={theme} toggleTheme={toggleTheme} />;
+    return <AuthScreen onSignIn={handleAuth} theme={theme} toggleTheme={toggleTheme} currentStudentId={student.id} />;
   }
 
   if (userRole === 'student') {
@@ -307,6 +441,8 @@ export default function App() {
         setStudent={setStudent}
         transactions={transactions}
         addTransaction={addTransaction}
+        setIncomingOrders={setIncomingOrders}
+        setStaffSales={setStaffSales}
         onLogout={handleLogout}
         triggerToast={triggerToast}
         notification={notification}
@@ -341,6 +477,8 @@ export default function App() {
         setStudent={setStudent}
         transactions={transactions}
         addTransaction={addTransaction}
+        incomingOrders={incomingOrders}
+        setIncomingOrders={setIncomingOrders}
         staffSales={staffSales}
         setStaffSales={setStaffSales}
         onLogout={handleLogout}
@@ -358,29 +496,12 @@ export default function App() {
 // PARENT DASHBOARD COMPONENT
 // =============================================================
 function ParentDashboard({ student, setStudent, transactions, addTransaction, onLogout, triggerToast, notification, toggleTheme, renderThemeIcon }) {
-  const [targetStudentId, setTargetStudentId] = useState(student.id || '');
   const [transferAmount, setTransferAmount] = useState('');
   const [newCapInput, setNewCapInput] = useState(student.dailyCap.toString());
 
-  useEffect(() => {
-    if (student?.id) {
-      setTargetStudentId(student.id);
-    }
-  }, [student?.id]);
-
   const handleSendMoney = (e) => {
     e.preventDefault();
-    const amountNum = parseFloat(transferAmount);
-
-    if (!targetStudentId.trim()) {
-      alert('Please enter a valid Student Pass ID');
-      return;
-    }
-
-    if (targetStudentId.trim().toUpperCase() !== student.id.toUpperCase()) {
-      alert('Student Pass ID not found. Check the unique ID shown in the linked student profile.');
-      return;
-    }
+    const amountNum = Math.round(parseFloat(transferAmount));
 
     if (isNaN(amountNum) || amountNum <= 0) {
       alert('Please enter a valid amount');
@@ -388,23 +509,23 @@ function ParentDashboard({ student, setStudent, transactions, addTransaction, on
     }
 
     if (student.walletBalance + amountNum > MAX_WALLET_LIMIT) {
-      alert(`Top-up rejected! Total student wallet balance cannot exceed Rs ${MAX_WALLET_LIMIT}. (Current Balance: Rs ${student.walletBalance.toFixed(2)})`);
+      alert(`Top-up rejected! Total student wallet balance cannot exceed RS ${MAX_WALLET_LIMIT}. (Current Balance: RS ${Math.round(student.walletBalance)})`);
       return;
     }
 
     setStudent((prev) => ({
       ...prev,
-      walletBalance: prev.walletBalance + amountNum,
+      walletBalance: Math.round(prev.walletBalance + amountNum),
     }));
 
-    addTransaction(`Parent Top-Up (${targetStudentId})`, amountNum, 'credit', 'Parent Portal');
-    triggerToast(`Successfully sent Rs ${amountNum.toFixed(2)} to Student (${targetStudentId})`);
+    addTransaction(`Parent Top-Up (${student.name})`, amountNum, 'credit', 'Parent Portal');
+    triggerToast(`Successfully sent RS ${amountNum} to ${student.name}`);
     setTransferAmount('');
   };
 
   const handleUpdateCap = (e) => {
     e.preventDefault();
-    const capNum = parseFloat(newCapInput);
+    const capNum = Math.round(parseFloat(newCapInput));
 
     if (isNaN(capNum) || capNum < 0) {
       alert('Please enter a valid cap amount');
@@ -412,7 +533,7 @@ function ParentDashboard({ student, setStudent, transactions, addTransaction, on
     }
 
     if (capNum > MAX_WALLET_LIMIT) {
-      alert(`Daily spending cap cannot exceed Rs ${MAX_WALLET_LIMIT}.`);
+      alert(`Daily spending cap cannot exceed RS ${MAX_WALLET_LIMIT}.`);
       return;
     }
 
@@ -421,7 +542,7 @@ function ParentDashboard({ student, setStudent, transactions, addTransaction, on
       dailyCap: capNum,
     }));
 
-    triggerToast(`Updated ${student.name}'s Daily Allowance Cap to Rs ${capNum.toFixed(2)}`);
+    triggerToast(`Updated ${student.name}'s Daily Allowance Cap to RS ${capNum}`);
   };
 
   return (
@@ -453,7 +574,6 @@ function ParentDashboard({ student, setStudent, transactions, addTransaction, on
         </div>
       </header>
 
-      {/* Linked Student Overview */}
       <div className="panel target-student-panel">
         <div className="panel-row">
           <div className="student-profile-info">
@@ -463,7 +583,7 @@ function ParentDashboard({ student, setStudent, transactions, addTransaction, on
             <div>
               <div className="student-name">{student.name}</div>
               <div className="student-meta">
-                Unique ID: <strong>{student.id}</strong> • Balance: <strong>Rs {student.walletBalance.toFixed(2)}</strong>
+                ID: <strong>{student.id}</strong> • Balance: <strong>RS {Math.round(student.walletBalance)}</strong>
               </div>
             </div>
           </div>
@@ -473,32 +593,19 @@ function ParentDashboard({ student, setStudent, transactions, addTransaction, on
 
       <TransactionHistory transactions={transactions} />
 
-      {/* Transfer Funds Section */}
       <div className="panel">
         <div className="widget-title gold-text" style={{ marginBottom: '14px' }}>
           <Send size={17} />
-          <span>SEND FUNDS TO STUDENT ID</span>
+          <span>INSTANT WALLET TOP-UP</span>
         </div>
 
         <form onSubmit={handleSendMoney}>
-          <div className="auth-label" style={{ marginBottom: '6px' }}>Student Unique ID</div>
-          <div className="auth-input-wrap" style={{ marginBottom: '14px' }}>
-            <QrCode size={16} />
-            <input 
-              type="text" 
-              placeholder="Student Unique ID" 
-              value={targetStudentId}
-              onChange={(e) => setTargetStudentId(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="auth-label" style={{ marginBottom: '6px' }}>Top-Up Amount (Rs)</div>
+          <div className="auth-label" style={{ marginBottom: '6px' }}>Top-Up Amount (RS)</div>
           <div className="auth-input-wrap" style={{ marginBottom: '14px' }}>
             <Wallet size={16} />
             <input 
               type="number" 
-              placeholder="Enter amount in Rs" 
+              placeholder="Enter amount in RS" 
               value={transferAmount}
               onChange={(e) => setTransferAmount(e.target.value)}
               min="1"
@@ -510,33 +617,31 @@ function ParentDashboard({ student, setStudent, transactions, addTransaction, on
           <div className="quick-scan-sim" style={{ marginTop: '0', marginBottom: '16px' }}>
             <span className="sim-label">Quick Presets:</span>
             <div className="sim-actions">
-              <button type="button" className="sim-chip" onClick={() => setTransferAmount('500')}>+ Rs 500</button>
-              <button type="button" className="sim-chip" onClick={() => setTransferAmount('1000')}>+ Rs 1,000</button>
-              <button type="button" className="sim-chip" onClick={() => setTransferAmount('5000')}>+ Rs 5,000</button>
-              <button type="button" className="sim-chip" onClick={() => setTransferAmount('10000')}>+ Rs 10,000</button>
+              <button type="button" className="sim-chip" onClick={() => setTransferAmount('500')}>+ RS 500</button>
+              <button type="button" className="sim-chip" onClick={() => setTransferAmount('1000')}>+ RS 1,000</button>
+              <button type="button" className="sim-chip" onClick={() => setTransferAmount('5000')}>+ RS 5,000</button>
             </div>
           </div>
 
-          <button className="primary-btn gold-btn" type="submit">
-            <Send size={16} /> Transfer Money to Pass
+          <button className="primary-btn gold-btn" type="submit" style={{ width: '100%' }}>
+            <Send size={16} /> Transfer Money to Student Pass
           </button>
         </form>
       </div>
 
-      {/* Allowance Controls */}
       <div className="panel budget-panel">
         <div className="widget-title gold-text" style={{ marginBottom: '12px' }}>
           <Sliders size={17} />
-          <span>DAILY ALLOWANCE CONTROL (MAX RS 10,000)</span>
+          <span>DAILY ALLOWANCE CONTROL</span>
         </div>
 
         <form onSubmit={handleUpdateCap}>
-          <div className="auth-label" style={{ marginBottom: '6px' }}>Daily Spending Cap (Rs)</div>
+          <div className="auth-label" style={{ marginBottom: '6px' }}>Daily Spending Cap (RS)</div>
           <div className="auth-input-wrap" style={{ marginBottom: '14px' }}>
             <Shield size={16} />
             <input 
               type="number" 
-              placeholder="Max Rs 10,000 limit" 
+              placeholder="Max limit RS 10,000" 
               value={newCapInput}
               onChange={(e) => setNewCapInput(e.target.value)}
               min="0"
@@ -551,8 +656,8 @@ function ParentDashboard({ student, setStudent, transactions, addTransaction, on
         </form>
 
         <div className="summary-text" style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed var(--panel-border)' }}>
-          <span>Current Cap: <strong>Rs {student.dailyCap.toFixed(2)}</strong></span>
-          <span>Spent Today: Rs {student.spentToday.toFixed(2)}</span>
+          <span>Current Cap: <strong>RS {Math.round(student.dailyCap)}</strong></span>
+          <span>Spent Today: <strong>RS {Math.round(student.spentToday)}</strong></span>
         </div>
       </div>
     </div>
@@ -562,7 +667,19 @@ function ParentDashboard({ student, setStudent, transactions, addTransaction, on
 // =============================================================
 // STUDENT DASHBOARD COMPONENT
 // =============================================================
-function StudentDashboard({ student, setStudent, transactions, addTransaction, onLogout, triggerToast, notification, toggleTheme, renderThemeIcon }) {
+function StudentDashboard({ 
+  student, 
+  setStudent, 
+  transactions, 
+  addTransaction, 
+  setIncomingOrders, 
+  setStaffSales,
+  onLogout, 
+  triggerToast, 
+  notification, 
+  toggleTheme, 
+  renderThemeIcon 
+}) {
   const [selectedCategory, setSelectedCategory] = useState('Beverages');
   const [selectedSubcategory, setSelectedSubcategory] = useState('Tea');
   const [studentCart, setStudentCart] = useState([]);
@@ -571,15 +688,15 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
   const [pinInput, setPinInput] = useState('');
 
   const filteredMenu = CAFE_MENU.filter((item) => item.category === selectedCategory && (selectedCategory !== 'Beverages' || item.subcategory === selectedSubcategory));
-  const cartTotal = studentCart.reduce((sum, item) => sum + item.price, 0);
+  const cartTotal = Math.round(studentCart.reduce((sum, item) => sum + item.price, 0));
 
   const addToCart = (item) => {
     if (student.walletBalance <= 0) {
-      alert('Warning: Your wallet balance is Rs 0.00! Please ask your parent to top up your account.');
+      alert('Warning: Your wallet balance is RS 0! Please ask your parent to top up your account.');
       return;
     }
     if (cartTotal + item.price > student.walletBalance) {
-      alert(`Insufficient Funds! You cannot add ${item.name} (Rs ${item.price}) because your balance is Rs ${student.walletBalance.toFixed(2)}.`);
+      alert(`Insufficient Funds! You cannot add ${item.name} (RS ${item.price}) because your balance is RS ${Math.round(student.walletBalance)}.`);
       return;
     }
     setStudentCart((prev) => [...prev, item]);
@@ -593,12 +710,12 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
     if (studentCart.length === 0) return;
 
     if (student.walletBalance <= 0) {
-      alert('Cannot complete order! Wallet balance is Rs 0.00.');
+      alert('Cannot complete order! Wallet balance is RS 0.');
       return;
     }
 
     if (cartTotal > student.walletBalance) {
-      alert(`Insufficient funds! Your current wallet balance is Rs ${student.walletBalance.toFixed(2)}, but your total is Rs ${cartTotal.toFixed(2)}.`);
+      alert(`Insufficient funds! Your current wallet balance is RS ${Math.round(student.walletBalance)}, but your order total is RS ${cartTotal}.`);
       return;
     }
 
@@ -613,13 +730,30 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
   const executeOrder = () => {
     setStudent((prev) => ({
       ...prev,
-      walletBalance: prev.walletBalance - cartTotal,
-      spentToday: prev.spentToday + cartTotal,
+      walletBalance: Math.max(0, Math.round(prev.walletBalance - cartTotal)),
+      spentToday: Math.round(prev.spentToday + cartTotal),
     }));
 
-    const itemsSummary = studentCart.map(i => i.name).join(', ');
-    addTransaction(`Order: ${itemsSummary}`, cartTotal, 'debit', 'Student Portal');
-    triggerToast(`Order placed successfully! Total: Rs ${cartTotal.toFixed(2)}`);
+    const itemsSummary = studentCart.map((i) => i.name).join(', ');
+
+    addTransaction(`Order: ${itemsSummary}`, cartTotal, 'debit', `Student Portal (${student.name})`);
+
+    const orderPayload = {
+      id: `ORD-${Date.now().toString().slice(-4)}`,
+      studentName: student.name,
+      items: [...studentCart],
+      totalAmount: cartTotal,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setIncomingOrders((prev) => [orderPayload, ...prev]);
+
+    setStaffSales((prev) => ({
+      totalRevenue: Math.round(prev.totalRevenue + cartTotal),
+      ordersToday: prev.ordersToday + 1,
+    }));
+
+    triggerToast(`Order placed & paid! RS ${cartTotal} sent to Staff POS`);
     setStudentCart([]);
   };
 
@@ -650,7 +784,7 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
           <div className="icon-circle"><Coffee size={20} className="cafe-icon" /></div>
           <div>
             <div className="header-title">CafeoPass</div>
-            <div className="header-sub">Student Portal • {student.name} ({student.id})</div>
+            <div className="header-sub">Student Portal • Ullens Canteen</div>
           </div>
         </div>
         <div className="header-actions">
@@ -659,47 +793,33 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
         </div>
       </header>
 
-      {/* Wallet Balance Banner */}
       <div className="panel balance-panel">
         <div className="panel-row">
           <span className="panel-label">AVAILABLE BALANCE</span>
           <span className="status-badge active-badge">Pass Active</span>
         </div>
         <div className="balance-amount">
-          <span className="currency-unit">Rs</span>
+          <span className="currency-unit">RS</span>
           <span className={`amount-value ${student.walletBalance === 0 ? 'red-text' : ''}`}>
-            {student.walletBalance.toFixed(2)}
+            {Math.round(student.walletBalance)}
           </span>
         </div>
 
         {student.walletBalance === 0 && (
           <div className="warning-box">
-            <AlertTriangle size={16} /> Warning: Your wallet balance is empty (Rs 0.00)! Please request a top-up from your parent.
+            <AlertTriangle size={16} /> Warning: Your wallet balance is RS 0! Please request a top-up from your parent.
           </div>
         )}
-        
-        {/* Editable Name & Unique ID Display Field */}
-        <div className="auth-label" style={{ margin: '14px 0 6px' }}>Student Profile Name</div>
-        <div className="auth-input-wrap" style={{ marginBottom: '10px' }}>
-          <User size={16} />
-          <input
-            type="text"
-            aria-label="Student profile name"
-            value={student.name}
-            onChange={(e) => setStudent((prev) => ({ ...prev, name: e.target.value }))}
-            placeholder="Enter your name"
-          />
-        </div>
 
-        <div className="auth-label" style={{ margin: '6px 0 6px' }}>Assigned Unique Student ID</div>
-        <div className="auth-input-wrap" style={{ marginBottom: '14px', opacity: 0.85, background: 'var(--tab-bg)' }}>
-          <QrCode size={16} />
-          <input
-            type="text"
-            readOnly
-            value={student.id}
-            title="Unique Student ID assigned automatically"
-          />
+        <div className="student-profile-card">
+          <div className="profile-info-row">
+            <span className="profile-label">Student Name:</span>
+            <span className="profile-value">{student.name}</span>
+          </div>
+          <div className="profile-info-row">
+            <span className="profile-label">Assigned ID:</span>
+            <span className="profile-value id-badge">{student.id}</span>
+          </div>
         </div>
 
         <div className="action-button-group">
@@ -717,7 +837,7 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
             <Shield size={16} />
             <span>BUDGET SHIELD</span>
           </div>
-          <span className="meta-text">Daily Limit: Rs {student.dailyCap.toFixed(0)}</span>
+          <span className="meta-text">Daily Limit: RS {Math.round(student.dailyCap)}</span>
         </div>
 
         <div className="progress-track">
@@ -731,18 +851,17 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
         </div>
 
         <div className="panel-row summary-text">
-          <span>Spent Today: <strong>Rs {student.spentToday.toFixed(2)}</strong></span>
+          <span>Spent Today: <strong>RS {Math.round(student.spentToday)}</strong></span>
           <span className={remainingBudget < 30 ? 'red-text' : 'green-text'}>
-            Remaining: Rs {remainingBudget.toFixed(2)}
+            Remaining: RS {Math.round(remainingBudget)}
           </span>
         </div>
       </div>
 
-      {/* Cart Order List */}
       <div className="panel pos-cart-panel">
         <div className="panel-row">
           <span className="pos-cart-title"><Receipt size={16} className="cafe-icon" /> Your Order List</span>
-          <span className="pos-cart-total">Total: Rs {cartTotal.toFixed(2)}</span>
+          <span className="pos-cart-total">Total: RS {cartTotal}</span>
         </div>
 
         {studentCart.length === 0 ? (
@@ -753,7 +872,7 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
               <div key={idx} className="cart-row">
                 <span>{item.name}</span>
                 <div className="cart-row-right">
-                  <span className="cart-item-price">Rs {item.price}</span>
+                  <span className="cart-item-price">RS {item.price}</span>
                   <button className="trash-btn" onClick={() => removeFromCart(idx)} title="Remove Item"><Trash2 size={14} /></button>
                 </div>
               </div>
@@ -768,10 +887,10 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
         >
           <CreditCard size={18} />
           {student.walletBalance <= 0 
-            ? 'Wallet Empty (Rs 0.00)' 
+            ? 'Wallet Empty (RS 0)' 
             : cartTotal > student.walletBalance 
             ? 'Insufficient Funds' 
-            : `Place Order (Rs ${cartTotal.toFixed(2)})`}
+            : `Place Order (RS ${cartTotal})`}
         </button>
       </div>
 
@@ -818,7 +937,7 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
               <span className="item-name">{item.name}</span>
               <span className="item-cat">{item.subcategory || item.category}</span>
             </div>
-            <span className="item-price-tag">+ Rs {item.price}</span>
+            <span className="item-price-tag">+ RS {item.price}</span>
           </button>
         ))}
       </div>
@@ -851,7 +970,7 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
               <span>Allowance Cap Exceeded</span>
             </div>
             <p className="modal-body">
-              This order of <strong>Rs {cartTotal.toFixed(2)}</strong> exceeds your daily limit. Enter Parent PIN to authorize.
+              This order of <strong>RS {cartTotal}</strong> exceeds your daily limit. Enter Parent PIN to authorize.
             </p>
             <input
               type="password"
@@ -878,7 +997,21 @@ function StudentDashboard({ student, setStudent, transactions, addTransaction, o
 // =============================================================
 // STAFF TERMINAL DASHBOARD COMPONENT
 // =============================================================
-function StaffDashboard({ student, setStudent, transactions, addTransaction, staffSales, setStaffSales, onLogout, triggerToast, notification, toggleTheme, renderThemeIcon }) {
+function StaffDashboard({ 
+  student, 
+  setStudent, 
+  transactions, 
+  addTransaction, 
+  incomingOrders, 
+  setIncomingOrders, 
+  staffSales, 
+  setStaffSales, 
+  onLogout, 
+  triggerToast, 
+  notification, 
+  toggleTheme, 
+  renderThemeIcon 
+}) {
   const [selectedCategory, setSelectedCategory] = useState('Beverages');
   const [selectedSubcategory, setSelectedSubcategory] = useState('Tea');
   const [cart, setCart] = useState([]);
@@ -889,41 +1022,41 @@ function StaffDashboard({ student, setStudent, transactions, addTransaction, sta
   const addToCart = (item) => setCart((prev) => [...prev, item]);
   const removeFromCart = (index) => setCart((prev) => prev.filter((_, i) => i !== index));
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.price, 0);
+  const cartTotal = Math.round(cart.reduce((sum, item) => sum + item.price, 0));
 
-  const handleChargePass = () => {
+  const handleCompleteOrderQueue = (orderId, amount, studentName) => {
+    setIncomingOrders((prev) => prev.filter((o) => o.id !== orderId));
+    triggerToast(`Served & cleared order for ${studentName}`);
+  };
+
+  const handleDirectCharge = () => {
     if (cart.length === 0) return;
 
     if (student.walletBalance < cartTotal) {
-      alert(`Insufficient Funds! Student balance (Rs ${student.walletBalance.toFixed(2)}) cannot cover total Rs ${cartTotal.toFixed(2)}.`);
-      return;
-    }
-
-    if (student.spentToday + cartTotal > student.dailyCap) {
-      alert(`Transaction Declined! Student ${student.name} exceeds daily limit (Rs ${student.dailyCap}). Parent authorization required.`);
+      alert(`Insufficient Funds! Student balance (RS ${Math.round(student.walletBalance)}) cannot cover total RS ${cartTotal}.`);
       return;
     }
 
     setStudent((prev) => ({
       ...prev,
-      walletBalance: Math.min(MAX_WALLET_LIMIT, prev.walletBalance - cartTotal),
-      spentToday: prev.spentToday + cartTotal,
+      walletBalance: Math.max(0, Math.round(prev.walletBalance - cartTotal)),
+      spentToday: Math.round(prev.spentToday + cartTotal),
     }));
 
     setStaffSales((prev) => ({
-      totalRevenue: prev.totalRevenue + cartTotal,
+      totalRevenue: Math.round(prev.totalRevenue + cartTotal),
       ordersToday: prev.ordersToday + 1,
     }));
 
     const itemsSummary = cart.map(i => i.name).join(', ');
-    addTransaction(`Staff Order: ${itemsSummary}`, cartTotal, 'debit', 'Staff POS Terminal');
-    triggerToast(`Charged Rs ${cartTotal.toFixed(2)} to ${student.name}'s Pass`);
+    addTransaction(`Staff Register Charge: ${itemsSummary}`, cartTotal, 'debit', `Staff Terminal (${student.name})`);
+    triggerToast(`Charged RS ${cartTotal} to ${student.name}`);
     setCart([]);
   };
 
-  const handleScanPassResult = () => {
+  const handleScanPassResult = (scannedVal) => {
     setShowScanner(false);
-    triggerToast(`Scanned & Verified Student Pass: ${student.name} (${student.id})`);
+    triggerToast(`Scanned Student Pass: ${student.name}`);
   };
 
   return (
@@ -958,35 +1091,63 @@ function StaffDashboard({ student, setStudent, transactions, addTransaction, sta
           <span className="status-badge staff-mode-badge">Register Live</span>
         </div>
         <div className="balance-amount">
-          <span className="currency-unit">Rs</span>
-          <span className="amount-value">{staffSales.totalRevenue.toFixed(2)}</span>
+          <span className="currency-unit">RS</span>
+          <span className="amount-value">{Math.round(staffSales.totalRevenue)}</span>
         </div>
-        <span className="meta-text">{staffSales.ordersToday} Orders Completed Today</span>
+        <span className="meta-text">{staffSales.ordersToday} Orders Processed Today</span>
       </div>
 
       <div className="panel target-student-panel">
-        <div className="panel-row">
-          <div className="student-profile-info">
-            <div className="avatar-box"><User size={18} className="cafe-icon" /></div>
-            <div>
-              <div className="student-name">{student.name} ({student.id})</div>
-              <div className="student-meta">
-                Balance: Rs {student.walletBalance.toFixed(2)} (Max Rs 10,000) • Cap Left: Rs {Math.max(0, student.dailyCap - student.spentToday).toFixed(2)}
-              </div>
-            </div>
+        <div className="panel-row" style={{ marginBottom: '10px' }}>
+          <div className="widget-title green-text">
+            <ShoppingBag size={16} />
+            <span>INCOMING STUDENT ORDERS</span>
           </div>
           <button className="scan-mini-btn" onClick={() => setShowScanner(true)}>
             <QrCode size={14} /> Scan Pass
           </button>
         </div>
+
+        {incomingOrders.length === 0 ? (
+          <div className="empty-cart-msg">
+            No incoming student orders. Waiting for students to place an order...
+          </div>
+        ) : (
+          <div className="staff-orders-queue">
+            {incomingOrders.map((order) => (
+              <div key={order.id} className="staff-order-card">
+                <div className="staff-order-header">
+                  <span className="staff-student-title">Student: <strong>{order.studentName}</strong></span>
+                  <span className="staff-order-time">{order.timestamp}</span>
+                </div>
+                <div className="staff-order-body">
+                  <div className="staff-order-items">
+                    {order.items.map((item, i) => (
+                      <span key={i} className="staff-item-chip">{item.name} (RS {item.price})</span>
+                    ))}
+                  </div>
+                  <div className="staff-order-footer">
+                    <span className="staff-order-total">Paid Amount: <strong>RS {order.totalAmount}</strong></span>
+                    <button 
+                      className="complete-order-btn" 
+                      onClick={() => handleCompleteOrderQueue(order.id, order.totalAmount, order.studentName)}
+                    >
+                      <Check size={14} /> Serve Order
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <TransactionHistory transactions={transactions} />
 
       <div className="panel pos-cart-panel">
         <div className="panel-row">
-          <span className="pos-cart-title"><Receipt size={16} className="staff-icon" /> Current Order Bill</span>
-          <span className="pos-cart-total">Total: Rs {cartTotal.toFixed(2)}</span>
+          <span className="pos-cart-title"><Receipt size={16} className="staff-icon" /> Direct Register Sale</span>
+          <span className="pos-cart-total">Total: RS {cartTotal}</span>
         </div>
 
         {cart.length === 0 ? (
@@ -997,7 +1158,7 @@ function StaffDashboard({ student, setStudent, transactions, addTransaction, sta
               <div key={idx} className="cart-row">
                 <span>{item.name}</span>
                 <div className="cart-row-right">
-                  <span className="cart-item-price">Rs {item.price}</span>
+                  <span className="cart-item-price">RS {item.price}</span>
                   <button className="trash-btn" onClick={() => removeFromCart(idx)}><Trash2 size={14} /></button>
                 </div>
               </div>
@@ -1008,10 +1169,10 @@ function StaffDashboard({ student, setStudent, transactions, addTransaction, sta
         <button 
           className="primary-btn green-btn" 
           disabled={cart.length === 0} 
-          onClick={handleChargePass}
+          onClick={handleDirectCharge}
         >
           <CreditCard size={18} />
-          Charge Rs {cartTotal.toFixed(2)} to Student Pass
+          Charge RS {cartTotal} to Canteen Register
         </button>
       </div>
 
@@ -1051,7 +1212,8 @@ function StaffDashboard({ student, setStudent, transactions, addTransaction, sta
           <button key={item.id} className="menu-card-btn staff-add-btn" onClick={() => addToCart(item)}>
             <div className="menu-card-info">
               <span className="item-name">{item.name}</span>
-              <span className="item-cat">{item.subcategory || item.category}</span><span className="item-price-sub">Rs {item.price}</span>
+              <span className="item-cat">{item.subcategory || item.category}</span>
+              <span className="item-price-sub">RS {item.price}</span>
             </div>
           </button>
         ))}

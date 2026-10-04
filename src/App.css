@@ -49,9 +49,6 @@ body {
   min-height: 100vh;
 }
 
-/* =============================================================
-   LAYOUT & VIEWPORT CONTAINER
-   ============================================================= */
 .app-viewport {
   max-width: 460px;
   margin: 0 auto;
@@ -63,7 +60,6 @@ body {
   position: relative;
 }
 
-/* Toast Notifications */
 .toast-banner {
   position: fixed;
   top: 18px;
@@ -93,7 +89,6 @@ body {
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* Header Component */
 .app-header {
   display: flex;
   justify-content: space-between;
@@ -162,9 +157,6 @@ body {
   border-color: var(--caramel-gold);
 }
 
-/* =============================================================
-   PANELS & CARDS
-   ============================================================= */
 .panel {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
@@ -202,7 +194,6 @@ body {
 .green-text { color: var(--green-pos); }
 .red-text { color: var(--rose-red); }
 
-/* Balance Display */
 .balance-panel {
   display: flex;
   flex-direction: column;
@@ -249,7 +240,43 @@ body {
   border: 1px solid rgba(46, 160, 99, 0.3);
 }
 
-/* Zero Balance & Warning Box */
+.student-profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--input-bg);
+  border: 1px solid var(--panel-border);
+  margin: 4px 0;
+}
+
+.profile-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.profile-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.profile-value {
+  color: var(--text-primary);
+  font-weight: 750;
+}
+
+.profile-value.id-badge {
+  font-family: monospace;
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--tab-bg);
+  border: 1px solid var(--panel-border);
+}
+
 .warning-box {
   display: flex;
   align-items: center;
@@ -264,7 +291,6 @@ body {
   line-height: 1.3;
 }
 
-/* Action Buttons Group */
 .action-button-group {
   display: grid;
   grid-template-columns: 1fr;
@@ -273,6 +299,7 @@ body {
 }
 
 .primary-btn, .secondary-btn {
+  width: 100%;
   height: 44px;
   border-radius: 14px;
   font-family: var(--font-main);
@@ -326,9 +353,6 @@ body {
   border-color: var(--caramel-gold);
 }
 
-/* =============================================================
-   BUDGET SHIELD & PROGRESS
-   ============================================================= */
 .budget-panel {
   display: flex;
   flex-direction: column;
@@ -351,6 +375,10 @@ body {
 }
 
 .summary-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
   font-size: 0.78rem;
   color: var(--text-muted);
 }
@@ -360,9 +388,6 @@ body {
   color: var(--text-muted);
 }
 
-/* =============================================================
-   PARENT & STAFF TARGET STUDENT INFO
-   ============================================================= */
 .target-student-panel {
   background: var(--panel-bg);
 }
@@ -413,9 +438,94 @@ body {
   color: var(--caramel-gold);
 }
 
-/* =============================================================
-   CART & ORDER BILL (STUDENT & STAFF)
-   ============================================================= */
+.staff-orders-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.staff-order-card {
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--input-bg);
+  border: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.staff-order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--panel-border);
+}
+
+.staff-student-title {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.staff-order-time {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.staff-order-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.staff-order-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.staff-item-chip {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--tab-bg);
+  border: 1px solid var(--panel-border);
+  font-size: 0.73rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.staff-order-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.staff-order-total {
+  font-size: 0.8rem;
+  color: var(--green-pos);
+}
+
+.complete-order-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  background: var(--green-pos);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.complete-order-btn:hover {
+  opacity: 0.9;
+}
+
 .pos-cart-panel {
   display: flex;
   flex-direction: column;
@@ -503,9 +613,6 @@ body {
   background: rgba(230, 83, 83, 0.15);
 }
 
-/* =============================================================
-   MENU & CATEGORY SELECTION
-   ============================================================= */
 .section-title {
   display: flex;
   align-items: center;
@@ -634,9 +741,6 @@ body {
   margin-top: 2px;
 }
 
-/* =============================================================
-   TRANSACTION HISTORY
-   ============================================================= */
 .transaction-history-panel {
   display: flex;
   flex-direction: column;
@@ -680,9 +784,6 @@ body {
   font-weight: 800;
 }
 
-/* =============================================================
-   MODALS & OVERLAYS
-   ============================================================= */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -757,7 +858,6 @@ body {
   padding: 6px;
 }
 
-/* QR Code Display Modal */
 .qr-card-content {
   display: flex;
   flex-direction: column;
@@ -805,14 +905,13 @@ body {
   max-width: 240px;
 }
 
-/* QR Scanner Modal */
 .scanner-modal {
   width: min(100%, 380px);
 }
 
 .viewfinder-container {
   width: 100%;
-  height: 200px;
+  height: 220px;
   border-radius: 16px;
   background: #000000;
   position: relative;
@@ -825,6 +924,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .viewfinder-placeholder {
@@ -832,8 +932,10 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.76rem;
+  text-align: center;
+  padding: 0 16px;
 }
 
 .pulse-icon {
@@ -855,24 +957,24 @@ body {
 }
 
 .scan-reticle {
-  width: 140px;
-  height: 140px;
-  border: 2px dashed rgba(223, 146, 46, 0.7);
-  border-radius: 12px;
+  width: 150px;
+  height: 150px;
+  border: 2px dashed rgba(223, 146, 46, 0.85);
+  border-radius: 14px;
 }
 
 .laser-beam {
   position: absolute;
-  width: 160px;
+  width: 170px;
   height: 2px;
   background: var(--caramel-gold);
-  box-shadow: 0 0 10px var(--caramel-gold);
+  box-shadow: 0 0 12px var(--caramel-gold);
   animation: scanBeam 2.2s infinite ease-in-out;
 }
 
 @keyframes scanBeam {
-  0%, 100% { top: 30px; }
-  50% { top: 170px; }
+  0%, 100% { top: 35px; }
+  50% { top: 185px; }
 }
 
 .quick-scan-sim {
